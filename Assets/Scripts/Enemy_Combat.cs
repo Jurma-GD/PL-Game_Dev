@@ -12,6 +12,10 @@ public class Enemy_Combat : MonoBehaviour
     //such as the game object that was collided with, the point of contact, and the normal of the collision.
     private void OnCollisionEnter2D(Collision2D collision)
     {
-        collision.gameObject.GetComponent<PlayerHealth>().ChangeHealth(-damage);
+        PlayerHealth playerHealth = collision.gameObject.GetComponent<PlayerHealth>();
+        if (playerHealth != null)
+        {
+            playerHealth.ChangeHealth(-damage);
+        }
     }
 }

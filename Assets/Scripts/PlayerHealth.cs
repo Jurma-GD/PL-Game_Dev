@@ -1,26 +1,28 @@
 using UnityEngine;
-using TMPro;
+using UnityEngine.UI;   
 public class PlayerHealth : MonoBehaviour
 {
     // Start is called once before the first execution of Update after the MonoBehaviour is created
-    public int currentHealth;
+    public int health;
     public int maxHealth;
+    public Slider slider;
 
-    public TextMeshProUGUI healthText;
-    public Animator healthTextAnim;
+    
 
     private void Start()
     {
-        healthText.text = "HP: " + currentHealth + "/" + maxHealth;
-       
+        health = maxHealth;
+        slider.maxValue = maxHealth; 
+        slider.value = health;
+
     }
     public void ChangeHealth(int amount)
     {
-        currentHealth += amount;
-        healthTextAnim.Play("TextUpdate");
+        health += amount;
+        slider.value = health;
 
-        healthText.text = "HP: " + currentHealth + "/" + maxHealth;
-        if (currentHealth <= 0)
+
+        if (health <= 0)
         {
             gameObject.SetActive(false);
         }
