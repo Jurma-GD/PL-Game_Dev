@@ -1,31 +1,35 @@
 using UnityEngine;
-using UnityEngine.UI;   
+using UnityEngine.UI;
+
 public class PlayerHealth : MonoBehaviour
 {
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
+    [Header("Health Settings")]
     public int health;
-    public int maxHealth;
+    public int maxHealth = 3;
     public Slider slider;
-
-    
 
     private void Start()
     {
         health = maxHealth;
-        slider.maxValue = maxHealth; 
-        slider.value = health;
 
+        if (slider != null)
+        {
+            slider.maxValue = maxHealth;
+            slider.value = health;
+        }
     }
+
     public void ChangeHealth(int amount)
     {
         health += amount;
-        slider.value = health;
+        health = Mathf.Clamp(health, 0, maxHealth);
 
+        if (slider != null)
+            slider.value = health;
 
         if (health <= 0)
         {
             gameObject.SetActive(false);
         }
     }
-
 }

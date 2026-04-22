@@ -1,25 +1,33 @@
 using System.Collections;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-public class NewMonoBehaviourScript : MonoBehaviour
+
+public class SceneChanger : MonoBehaviour
 {
     public string sceneToLoad;
     public Animator fadeAnim;
-    public float fadeTime = .5f;
+    public float fadeTime = 0.5f;
+
+    private bool isTransitioning;
 
     private void OnTriggerEnter2D(Collider2D collision)
     {
-        if (collision.gameObject.tag == "Player")
+        if (isTransitioning) return;
+
+        if (collision.CompareTag("Player"))
         {
-            fadeAnim.Play("FadeToWhite");
+            isTransitioning = true;
+
+            if (fadeAnim != null)
+                fadeAnim.Play("FadeToWhite");
+
             StartCoroutine(DelayFade());
-
         }
+    }
 
-        IEnumerator DelayFade()
-        {
-            yield return new WaitForSeconds(fadeTime);
-            SceneManager.LoadScene(sceneToLoad);
-        }
+    private IEnumerator DelayFade()
+    {
+        yield return new WaitForSeconds(fadeTime);
+        SceneManager.LoadScene(sceneToLoad);
     }
 }
