@@ -5,6 +5,7 @@ using UnityEngine.SceneManagement;
 using UnityEngine.Tilemaps;
 using UnityEngine.UI;
 using TMPro;
+using System.Collections.Generic;
 
 /// <summary>
 /// Editor utility: Menu > Maze > Build Mega Maze Scene
@@ -12,6 +13,209 @@ using TMPro;
 /// </summary>
 public class MazeSceneBuilder
 {
+    [MenuItem("Maze/Preview Maze In Scene")]
+    public static void PreviewMazeInScene()
+    {
+        MegaMazeGenerator gen = Object.FindFirstObjectByType<MegaMazeGenerator>();
+        if (gen == null)
+        {
+            Debug.LogError("[MazeSceneBuilder] No MegaMazeGenerator found in scene.");
+            return;
+        }
+
+        gen.Initialize();
+        gen.GenerateFullMaze();
+
+        // --- Remove old preview root ---
+        GameObject oldRoot = GameObject.Find("__MazePreview__");
+        if (oldRoot != null) Object.DestroyImmediate(oldRoot);
+
+        // --- Create preview root (destroyed on Play via MazePreviewRoot component) ---
+        GameObject previewRoot = new GameObject("__MazePreview__");
+        previewRoot.AddComponent<MazePreviewRoot>();
+
+        // --- Spawn marker (green) ---
+        Vector3 spawnPos = gen.GetSectorSpawnPosition(0, 0);
+        GameObject spawnMarker = new GameObject("Spawn");
+        spawnMarker.transform.SetParent(previewRoot.transform);
+        spawnMarker.transform.position = spawnPos;
+        spawnMarker.transform.localScale = Vector3.one * 1.2f;
+        var spawnSR = spawnMarker.AddComponent<SpriteRenderer>();
+        spawnSR.sprite = CreateSquareSprite();
+        spawnSR.color = new Color(0f, 1f, 0.3f, 0.9f);
+        spawnSR.sortingOrder = 20;
+
+        // --- Exit marker (yellow diamond) ---
+        Vector3 exitPos = gen.GetSectorExitPosition(gen.gridCols - 1, gen.gridRows - 1);
+        exitPos = gen.FindNearestPassage(exitPos);
+        GameObject exitMarker = new GameObject("Exit");
+        exitMarker.transform.SetParent(previewRoot.transform);
+        exitMarker.transform.position = exitPos;
+        exitMarker.transform.localScale = Vector3.one * 1.4f;
+        var exitSR = exitMarker.AddComponent<SpriteRenderer>();
+        exitSR.sprite = CreateDiamondSprite();
+        exitSR.color = new Color(1f, 0.85f, 0f, 1f);
+        exitSR.sortingOrder = 20;
+
+        // --- Interactable pocket previews (cyan dots) ---
+        // Re-run pocket generation to get positions
+        int pocketCount = 0;
+        for (int col = 0; col < gen.gridCols; col++)
+        {
+            for (int row = 0; row < gen.gridRows; row++)
+            {
+                int sectorIndex = gen.GetSectorIndex(col, row);
+                int seed = sectorIndex; // approximate — pockets use sectorSeed+9999
+                UnityEngine.Random.InitState(seed + 9999);
+                int count = UnityEngine.Random.Range(1, 4);
+                int sectorTilesX = gen.sectorCellsX * 2 + 1;
+                int sectorTilesY = gen.sectorCellsY * 2 + 1;
+                int baseX = col * sectorTilesX;
+                int baseY = row * sectorTilesY;
+
+                for (int p = 0; p < count; p++)
+                {
+                    int cx = baseX + 3 + UnityEngine.Random.Range(0, sectorTilesX - 6);
+                    int cy = baseY + 3 + UnityEngine.Random.Range(0, sectorTilesY - 6);
+                    if ((cx - baseX) % 2 == 0) cx++;
+                    if ((cy - baseY) % 2 == 0) cy++;
+                    cx = Mathf.Clamp(cx, baseX + 2, baseX + sectorTilesX - 3);
+                    cy = Mathf.Clamp(cy, baseY + 2, baseY + sectorTilesY - 3);
+
+                    Vector3 pocketWorld = gen.wallTilemap != null
+                        ? gen.wallTilemap.CellToWorld(new Vector3Int(cx, cy, 0)) + gen.wallTilemap.cellSize / 2f
+                        : new Vector3(cx + 0.5f, cy + 0.5f, 0f);
+
+                    GameObject dot = new GameObject($"Interactable_{pocketCount}");
+                    dot.transform.SetParent(previewRoot.transform);
+                    dot.transform.position = pocketWorld;
+                    dot.transform.localScale = Vector3.one * 0.7f;
+                    var dotSR = dot.AddComponent<SpriteRenderer>();
+                    dotSR.sprite = CreateSquareSprite();
+                    dotSR.color = new Color(0f, 0.9f, 1f, 0.85f);
+                    dotSR.sortingOrder = 20;
+                    pocketCount++;
+                }
+            }
+        }
+
+        // --- BFS path overlay (white dots along shortest path) ---
+        var path = GetBFSPath(gen, spawnPos, exitPos);
+        if (path != null)
+        {
+            for (int i = 0; i < path.Count; i += 3) // every 3rd tile to avoid clutter
+            {
+                GameObject pathDot = new GameObject($"Path_{i}");
+                pathDot.transform.SetParent(previewRoot.transform);
+                Vector3 worldPos = gen.wallTilemap != null
+                    ? gen.wallTilemap.CellToWorld(new Vector3Int(path[i].x, path[i].y, 0)) + gen.wallTilemap.cellSize / 2f
+                    : new Vector3(path[i].x + 0.5f, path[i].y + 0.5f, 0f);
+                pathDot.transform.position = worldPos;
+                pathDot.transform.localScale = Vector3.one * 0.3f;
+                var pathSR = pathDot.AddComponent<SpriteRenderer>();
+                pathSR.sprite = CreateSquareSprite();
+                float t = (float)i / path.Count;
+                pathSR.color = Color.Lerp(new Color(0f, 1f, 0.3f, 0.7f), new Color(1f, 0.85f, 0f, 0.7f), t);
+                pathSR.sortingOrder = 19;
+            }
+            Debug.Log($"[MazePreview] Exit at {exitPos}. Spawn at {spawnPos}. BFS path: ~{path.Count} tiles ({path.Count} world units). Interactables: {pocketCount}");
+        }
+        else
+        {
+            Debug.Log($"[MazePreview] Exit at {exitPos}. Spawn at {spawnPos}. No direct BFS path found. Interactables: {pocketCount}");
+        }
+
+        EditorSceneManager.MarkSceneDirty(UnityEngine.SceneManagement.SceneManager.GetActiveScene());
+    }
+
+    private static List<Vector2Int> GetBFSPath(MegaMazeGenerator gen, Vector3 spawnWorld, Vector3 exitWorld)
+    {
+        if (gen.wallTilemap == null || gen.floorTilemap == null) return null;
+
+        Vector3Int startCell = gen.wallTilemap.WorldToCell(spawnWorld);
+        Vector3Int endCell = gen.wallTilemap.WorldToCell(exitWorld);
+
+        int w = gen.totalTilesX;
+        int h = gen.totalTilesY;
+
+        var visited = new bool[w, h];
+        var prev = new Dictionary<Vector2Int, Vector2Int>();
+        var queue = new Queue<Vector2Int>();
+        var start = new Vector2Int(startCell.x, startCell.y);
+        var end = new Vector2Int(endCell.x, endCell.y);
+
+        queue.Enqueue(start);
+        visited[start.x, start.y] = true;
+        prev[start] = start;
+
+        int[] dx = { 0, 0, 1, -1 };
+        int[] dy = { 1, -1, 0, 0 };
+
+        while (queue.Count > 0)
+        {
+            var cur = queue.Dequeue();
+            if (cur == end)
+            {
+                // Reconstruct path
+                var path = new List<Vector2Int>();
+                var node = end;
+                while (node != start)
+                {
+                    path.Add(node);
+                    node = prev[node];
+                }
+                path.Add(start);
+                path.Reverse();
+                return path;
+            }
+
+            for (int d = 0; d < 4; d++)
+            {
+                int nx = cur.x + dx[d];
+                int ny = cur.y + dy[d];
+                if (nx < 0 || nx >= w || ny < 0 || ny >= h) continue;
+                if (visited[nx, ny]) continue;
+                if (gen.floorTilemap.GetTile(new Vector3Int(nx, ny, 0)) == null) continue;
+
+                var next = new Vector2Int(nx, ny);
+                visited[nx, ny] = true;
+                prev[next] = cur;
+                queue.Enqueue(next);
+            }
+        }
+        return null;
+    }
+
+    [MenuItem("Maze/Clear Maze")]
+    public static void ClearMaze()
+    {
+        MegaMazeGenerator gen = Object.FindFirstObjectByType<MegaMazeGenerator>();
+        if (gen == null) return;
+
+        if (gen.wallTilemap != null)
+        {
+            gen.wallTilemap.ClearAllTiles();
+            gen.wallTilemap.color = Color.white; // restore color for game
+        }
+        if (gen.floorTilemap != null)
+        {
+            gen.floorTilemap.ClearAllTiles();
+            gen.floorTilemap.color = Color.white; // restore color for game
+        }
+
+        // Remove preview markers
+        var preview = GameObject.Find("__MazePreview__");
+        if (preview != null) Object.DestroyImmediate(preview);
+        // Legacy cleanup
+        var exit = GameObject.Find("__PreviewExit__");
+        if (exit != null) Object.DestroyImmediate(exit);
+        var spawn = GameObject.Find("__PreviewSpawn__");
+        if (spawn != null) Object.DestroyImmediate(spawn);
+
+        EditorSceneManager.MarkSceneDirty(UnityEngine.SceneManagement.SceneManager.GetActiveScene());
+        Debug.Log("[MazeSceneBuilder] Maze cleared, colors restored.");
+    }
+
     [MenuItem("Maze/Build Mega Maze Scene")]
     public static void BuildMegaMazeScene()
     {

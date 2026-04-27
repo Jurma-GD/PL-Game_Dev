@@ -19,8 +19,11 @@ public class FogOfWar : MonoBehaviour
     public RawImage fogImage;
 
     private Texture2D fogTexture;
-    private int texSize = 256; // smaller for performance
+    private int texSize = 64;
+    private Color[] fogPixels;
     private float currentAlphaMultiplier = 1f;
+    private float updateInterval = 0.05f; // update 20 times per second max
+    private float updateTimer = 0f;
 
     public float AlphaMultiplier
     {
@@ -38,6 +41,9 @@ public class FogOfWar : MonoBehaviour
 
     private void LateUpdate()
     {
+        updateTimer -= Time.deltaTime;
+        if (updateTimer > 0f) return;
+        updateTimer = updateInterval;
         UpdateFogTexture();
     }
 
@@ -46,6 +52,7 @@ public class FogOfWar : MonoBehaviour
         fogTexture = new Texture2D(texSize, texSize, TextureFormat.RGBA32, false);
         fogTexture.filterMode = FilterMode.Bilinear;
         fogTexture.wrapMode = TextureWrapMode.Clamp;
+        fogPixels = new Color[texSize * texSize]; // preallocate
 
         if (fogImage != null)
             fogImage.texture = fogTexture;
@@ -57,8 +64,6 @@ public class FogOfWar : MonoBehaviour
 
         float orthoSize = mainCamera.orthographicSize;
         float aspect = mainCamera.aspect;
-
-        // Radius as fraction of screen height
         float radiusFraction = viewRadius / (orthoSize * 2f);
 
         float centerX = 0.5f;
@@ -80,37 +85,34 @@ public class FogOfWar : MonoBehaviour
                 float u = (float)x / texSize;
                 float v = (float)y / texSize;
 
-                // Distance in normalized screen space, accounting for aspect ratio
                 float dx = (u - centerX) * aspect;
                 float dy = v - centerY;
                 float dist = Mathf.Sqrt(dx * dx + dy * dy);
-
-                // Normalize by radius fraction
                 float normDist = dist / radiusFraction;
 
                 float alpha;
                 if (normDist < 0.5f)
-                    alpha = 0f; // clear center
+                    alpha = 0f;
                 else if (normDist < 1f)
                     alpha = Mathf.SmoothStep(0f, 1f, (normDist - 0.5f) / 0.5f);
                 else
-                    alpha = 1f; // fully dark
+                    alpha = 1f;
 
                 alpha = Mathf.Clamp01(alpha * baseAlpha);
-                fogTexture.SetPixel(x, y, new Color(fogColor.r, fogColor.g, fogColor.b, alpha));
+                fogPixels[y * texSize + x] = new Color(fogColor.r, fogColor.g, fogColor.b, alpha);
             }
         }
 
+        fogTexture.SetPixels(fogPixels); // bulk set — much faster
         fogTexture.Apply();
     }
 
     public void SetFullBlack()
     {
         if (fogTexture == null) return;
-        Color black = Color.black;
-        for (int x = 0; x < texSize; x++)
-            for (int y = 0; y < texSize; y++)
-                fogTexture.SetPixel(x, y, black);
+        for (int i = 0; i < fogPixels.Length; i++)
+            fogPixels[i] = Color.black;
+        fogTexture.SetPixels(fogPixels);
         fogTexture.Apply();
     }
 

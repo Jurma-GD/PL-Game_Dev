@@ -26,6 +26,9 @@ public class MegaMazeGenerator : MonoBehaviour
     [Header("Interactable")]
     public GameObject interactablePrefab;
 
+    [Header("Seed")]
+    public int masterSeed = 12345;
+
     // Derived: tile dimensions per sector (cells*2+1)
     [HideInInspector] public int sectorTilesX;
     [HideInInspector] public int sectorTilesY;
@@ -55,7 +58,8 @@ public class MegaMazeGenerator : MonoBehaviour
         totalTilesX = sectorTilesX * gridCols;
         totalTilesY = sectorTilesY * gridRows;
 
-        // Create sector seeds
+        // Create sector seeds deterministically from master seed
+        Random.InitState(masterSeed);
         sectorSeeds = new int[gridCols * gridRows];
         for (int i = 0; i < sectorSeeds.Length; i++)
             sectorSeeds[i] = Random.Range(1, int.MaxValue);
@@ -215,8 +219,8 @@ public class MegaMazeGenerator : MonoBehaviour
             }
         }
 
-        // Create pockets (small open areas) for interactables
-        CreatePockets(col, row, baseX, baseY, seed);
+        // Create pockets (small open areas) for interactables — skipped, no interactables
+        // CreatePockets(col, row, baseX, baseY, seed);
 
         Random.state = prevState;
     }
