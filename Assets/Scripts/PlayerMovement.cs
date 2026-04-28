@@ -8,9 +8,6 @@ public class PlayerMovement : MonoBehaviour
     public Rigidbody2D rb;
     public Animator animator;
 
-    /// <summary>
-    /// Set to false to freeze the player (e.g. during sleep transition).
-    /// </summary>
     [HideInInspector] public bool canMove = true;
 
     private int facingDirection = 1;
@@ -33,9 +30,7 @@ public class PlayerMovement : MonoBehaviour
 
         if ((horizontal > 0 && transform.localScale.x < 0) ||
             (horizontal < 0 && transform.localScale.x > 0))
-        {
             Flip();
-        }
 
         if (animator != null)
         {
