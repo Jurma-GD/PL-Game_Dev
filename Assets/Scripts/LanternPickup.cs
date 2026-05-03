@@ -60,10 +60,15 @@ public class LanternPickup : MonoBehaviour
         if (promptText != null)
             promptText.gameObject.SetActive(false);
 
-        // Expand fog view radius
+        // Expand fog view radius — reduced on Hard mode
         FogOfWar fog = FindFirstObjectByType<FogOfWar>();
         if (fog != null)
-            fog.viewRadius = expandedViewRadius;
+        {
+            float radius = expandedViewRadius;
+            if (GameSettings.Difficulty == 2) // Hard
+                radius *= 0.55f; // noticeably dimmer
+            fog.viewRadius = radius;
+        }
 
         // Show pickup message
         MegaMazeGameManager manager = FindFirstObjectByType<MegaMazeGameManager>();

@@ -12,9 +12,9 @@ public static class GameSettings
     {
         switch (Difficulty)
         {
-            case 0: return 600f; // Easy   — 10 min
+            case 0: return 420f; // Easy   —  7 min
             case 2: return 120f; // Hard   —  2 min
-            default: return 300f; // Normal —  5 min
+            default: return 210f; // Normal — 3:30
         }
     }
 }

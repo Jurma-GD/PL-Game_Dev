@@ -4,18 +4,30 @@ using UnityEngine.UI;
 using TMPro;
 
 /// <summary>
-/// Drives the main menu: Play, Settings panel, Quit.
+/// Drives the main menu: Play, Settings, Credits, Quit.
 /// </summary>
 public class MainMenuManager : MonoBehaviour
 {
     [Header("Panels")]
     public GameObject mainPanel;
     public GameObject settingsPanel;
+    public GameObject creditsPanel;
 
     [Header("Settings Controls")]
     public Slider volumeSlider;
     public TMP_InputField seedInputField;
     public TextMeshProUGUI difficultyLabel;
+
+    [Header("Credits")]
+    [TextArea(5, 20)]
+    public string creditsText = "Game Design & Development\nYour Name\n\nArt Assets\nAsset Credits Here\n\nSpecial Thanks\nEveryone who helped";
+    public TextMeshProUGUI creditsTextDisplay;
+
+    [Header("Background")]
+    public Image backgroundImage;
+    public Sprite menuBackgroundSprite;
+    [Range(0f, 1f)]
+    public float backgroundOpacity = 0.4f;
 
     [Header("Scene")]
     public string mazeSceneName = "MazeScene";
@@ -25,16 +37,30 @@ public class MainMenuManager : MonoBehaviour
 
     private void Start()
     {
+        // Apply background image if assigned
+        if (backgroundImage != null && menuBackgroundSprite != null)
+        {
+            backgroundImage.sprite = menuBackgroundSprite;
+            backgroundImage.color = new Color(1f, 1f, 1f, backgroundOpacity);
+            backgroundImage.type = Image.Type.Simple;
+            backgroundImage.preserveAspect = false;
+        }
+
         // Load saved settings
-        volumeSlider.value = GameSettings.Volume;
-        seedInputField.text = GameSettings.MazeSeed.ToString();
+        if (volumeSlider != null) volumeSlider.value = GameSettings.Volume;
+        if (seedInputField != null) seedInputField.text = GameSettings.MazeSeed.ToString();
         difficulty = GameSettings.Difficulty;
         UpdateDifficultyLabel();
 
         AudioListener.volume = GameSettings.Volume;
 
-        settingsPanel.SetActive(false);
-        mainPanel.SetActive(true);
+        if (settingsPanel != null) settingsPanel.SetActive(false);
+        if (creditsPanel != null) creditsPanel.SetActive(false);
+        if (mainPanel != null) mainPanel.SetActive(true);
+
+        // Set credits text
+        if (creditsTextDisplay != null)
+            creditsTextDisplay.text = creditsText;
     }
 
     // --- Main Panel ---
@@ -49,6 +75,12 @@ public class MainMenuManager : MonoBehaviour
     {
         mainPanel.SetActive(false);
         settingsPanel.SetActive(true);
+    }
+
+    public void OnCreditsClicked()
+    {
+        mainPanel.SetActive(false);
+        creditsPanel.SetActive(true);
     }
 
     public void OnQuitClicked()
@@ -78,7 +110,10 @@ public class MainMenuManager : MonoBehaviour
     public void OnBackClicked()
     {
         ApplySettings();
-        settingsPanel.SetActive(false);
+        if (settingsPanel != null && settingsPanel.activeSelf)
+            settingsPanel.SetActive(false);
+        if (creditsPanel != null && creditsPanel.activeSelf)
+            creditsPanel.SetActive(false);
         mainPanel.SetActive(true);
     }
 
@@ -86,10 +121,10 @@ public class MainMenuManager : MonoBehaviour
 
     private void ApplySettings()
     {
-        GameSettings.Volume = volumeSlider.value;
+        if (volumeSlider != null) GameSettings.Volume = volumeSlider.value;
         GameSettings.Difficulty = difficulty;
 
-        if (int.TryParse(seedInputField.text, out int seed))
+        if (seedInputField != null && int.TryParse(seedInputField.text, out int seed))
             GameSettings.MazeSeed = seed;
 
         AudioListener.volume = GameSettings.Volume;

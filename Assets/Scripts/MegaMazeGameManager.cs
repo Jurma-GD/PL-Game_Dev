@@ -99,8 +99,9 @@ public class MegaMazeGameManager : MonoBehaviour
                 reshuffleWarningPanel.SetActive(showWarning);
         }
 
-        if (reshuffleTimer <= 0f)
+        if (reshuffleTimer <= 0f && !isTransitioning)
         {
+            isTransitioning = true;
             StartCoroutine(SleepTransition());
         }
 
@@ -374,8 +375,8 @@ public class MegaMazeGameManager : MonoBehaviour
         bool teleported = false;
         if (playerCheckpoint != null && playerCheckpoint.HasCheckpoint)
         {
-            // Find the nearest safe passage to the checkpoint position
-            Vector3 safePos = mazeGenerator.FindNearestPassage(playerCheckpoint.CheckpointPosition);
+            // Find where the checkpoint's sector ended up after reshuffle
+            Vector3 safePos = playerCheckpoint.GetPostReshufflePosition(mazeGenerator);
             playerCheckpoint.AdjustCheckpointPosition(safePos);
             teleported = playerCheckpoint.TeleportToCheckpointOnReshuffle();
         }

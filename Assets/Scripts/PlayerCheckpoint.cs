@@ -18,6 +18,10 @@ public class PlayerCheckpoint : MonoBehaviour
     private GameObject activeMarker;
     private float cooldownTimer;
 
+    // Sector the checkpoint was placed in
+    private int checkpointSectorIndex = -1;
+    private Vector2Int checkpointSectorCoord;
+
     private void Update()
     {
         if (cooldownTimer > 0f)
@@ -45,6 +49,14 @@ public class PlayerCheckpoint : MonoBehaviour
         checkpointPosition = transform.position;
         hasCheckpoint = true;
         cooldownTimer = placementCooldown;
+
+        // Store which sector this checkpoint is in
+        MegaMazeGenerator gen = FindFirstObjectByType<MegaMazeGenerator>();
+        if (gen != null)
+        {
+            checkpointSectorCoord = gen.WorldToSectorCoord(checkpointPosition);
+            checkpointSectorIndex = gen.GetSectorIndex(checkpointSectorCoord.x, checkpointSectorCoord.y);
+        }
 
         if (checkpointMarkerPrefab != null)
         {
@@ -119,6 +131,32 @@ public class PlayerCheckpoint : MonoBehaviour
     public bool HasCheckpoint => hasCheckpoint;
     public Vector3 CheckpointPosition => checkpointPosition;
     public float CooldownRemaining => Mathf.Max(0f, cooldownTimer);
+    public int CheckpointSectorIndex => checkpointSectorIndex;
+
+    /// <summary>
+    /// After a reshuffle, find where the checkpoint's sector ended up
+    /// and return the spawn position of that sector.
+    /// </summary>
+    public Vector3 GetPostReshufflePosition(MegaMazeGenerator gen)
+    {
+        if (!hasCheckpoint || checkpointSectorIndex < 0) return checkpointPosition;
+
+        // Find where this sector index is now in the grid
+        for (int col = 0; col < gen.gridCols; col++)
+        {
+            for (int row = 0; row < gen.gridRows; row++)
+            {
+                if (gen.GetSectorIndex(col, row) == checkpointSectorIndex)
+                {
+                    // Return spawn position of this sector
+                    return gen.GetSectorSpawnPosition(col, row);
+                }
+            }
+        }
+
+        // Fallback
+        return gen.FindNearestPassage(checkpointPosition);
+    }
 
     private static Sprite CreateCircleSprite()
     {
